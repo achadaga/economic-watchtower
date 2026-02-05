@@ -118,7 +118,7 @@ const DashboardView = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/status');
+      const response = await fetch('https://economic-watchtower.onrender.com/api/status');
       if (!response.ok) throw new Error('API Offline');
       const data = await response.json();
       setSystemData(data.data.assets); 
