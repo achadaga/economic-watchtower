@@ -1,20 +1,29 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from .logic import TradingAgent
 import traceback
+import datetime
 
 app = FastAPI()
 
-# NUCLEAR CORS OPTION: Allow absolutely everything to prevent blocking
+# Allow React app to talk to Python API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allows all origins
+    allow_origins=["*"], 
     allow_credentials=True,
-    allow_methods=["*"], # Allows all methods
-    allow_headers=["*"], # Allows all headers
+    allow_methods=["*"], 
+    allow_headers=["*"], 
 )
 
-# Initialize agent safely
+# --- Data Models ---
+class Lead(BaseModel):
+    name: str
+    email: str
+
+# --- Routes ---
+
+# Initialize agent
 try:
     agent = TradingAgent()
 except Exception as e:
@@ -24,34 +33,26 @@ except Exception as e:
 @app.get("/api/status")
 def get_market_status():
     if not agent:
-        return {"status": "error", "message": "Agent failed to initialize. Check logs."}
-
+        return {"status": "error", "message": "Agent failed to initialize."}
     try:
-        # Run the scan
         results = agent.run_scan()
-        
-        # Check if we actually got assets back
-        if not results or "assets" not in results:
-            return {
-                "status": "warning", 
-                "message": "Scan ran but returned no data.",
-                "data": results
-            }
-
-        return {
-            "status": "online",
-            "count": len(results["assets"]),
-            "data": results
-        }
+        return {"status": "online", "count": len(results["assets"]), "data": results}
     except Exception as e:
-        # Capture the full traceback to see exactly where it crashed
-        error_details = traceback.format_exc()
-        print(f"CRASH REPORT: {error_details}")
-        return {
-            "status": "critical_error", 
-            "message": str(e),
-            "traceback": error_details
-        }
+        return {"status": "critical_error", "message": str(e), "traceback": traceback.format_exc()}
+
+@app.post("/api/capture-lead")
+def capture_lead(lead: Lead):
+    """
+    Receives user data before allowing download.
+    In a real app, save this to a database (Postgres/Firebase).
+    For now, we log it to the system console for retrieval.
+    """
+    timestamp = datetime.datetime.now().isoformat()
+    
+    # LOGGING THE LEAD (Check Render Dashboard > Logs to see these)
+    print(f"[{timestamp}] NEW LEAD CAPTURED: {lead.name} | {lead.email}")
+    
+    return {"status": "success", "message": "Lead captured"}
 
 @app.get("/")
 def home():
