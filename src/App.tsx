@@ -8,13 +8,11 @@ import {
 } from 'lucide-react';
 
 /**
- * US Economic Watchtower v12 (Dynamic Config - Fixed)
- * - Simplified env check to avoid build warnings in strict environments.
+ * US Economic Watchtower v13 (Rolling 90D Sim Added)
+ * - Added "Last 3 Months" option to Simulation Lab
  */
 
 // --- Configuration ---
-// Access environment variable safely. 
-// If import.meta.env is undefined (due to build target), it falls back to the test URL.
 const getApiUrl = () => {
   try {
     // @ts-ignore
@@ -216,7 +214,7 @@ const LeadCaptureModal = ({ isOpen, onClose }) => {
 };
 
 const BacktestView = () => {
-    const [scenario, setScenario] = useState('2020_COVID');
+    const [scenario, setScenario] = useState('ROLLING_90D');
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -253,7 +251,7 @@ const BacktestView = () => {
                         <History className="h-6 w-6 text-blue-500" /> Time Machine
                     </h2>
                     <p className="text-sm text-slate-400 mb-6">
-                        Test the "Doomsday Algorithm" against historical crashes to validate performance.
+                        Test the "Doomsday Algorithm" against historical crashes or recent trends.
                     </p>
                     
                     <div className="space-y-4">
@@ -264,6 +262,7 @@ const BacktestView = () => {
                                 onChange={(e) => setScenario(e.target.value)}
                                 className="w-full bg-black border border-slate-700 rounded p-3 text-white font-mono focus:border-blue-500 outline-none"
                             >
+                                <option value="ROLLING_90D">Last 3 Months (Trend Analysis)</option>
                                 <option value="2020_COVID">2020: The Covid Crash</option>
                                 <option value="2008_GFC">2008: Great Financial Crisis</option>
                                 <option value="2022_INFLATION">2022: Inflation Bear Market</option>
