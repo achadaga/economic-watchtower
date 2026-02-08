@@ -8,10 +8,27 @@ import {
 } from 'lucide-react';
 
 /**
- * US Economic Watchtower v11 (Backtesting UI Added)
- * - Added "Simulation" Tab
- * - Added BacktestView component to visualize historical crash data
+ * US Economic Watchtower v12 (Dynamic Config - Fixed)
+ * - Simplified env check to avoid build warnings in strict environments.
  */
+
+// --- Configuration ---
+// Access environment variable safely. 
+// If import.meta.env is undefined (due to build target), it falls back to the test URL.
+const getApiUrl = () => {
+  try {
+    // @ts-ignore
+    if (import.meta.env && import.meta.env.VITE_API_URL) {
+      // @ts-ignore
+      return import.meta.env.VITE_API_URL;
+    }
+  } catch (e) {
+    // Ignore errors if import.meta is not available
+  }
+  return 'https://doomsday-test-backend.onrender.com';
+};
+
+const API_BASE_URL = getApiUrl();
 
 // --- Shared Components ---
 
@@ -21,7 +38,7 @@ const Header = ({ activeTab, setActiveTab, mobileMenuOpen, setMobileMenuOpen }) 
     { id: 'crypto', label: 'Crypto', icon: Zap },
     { id: 'economy', label: 'Macro', icon: Globe },
     { id: 'bonds', label: 'Bonds', icon: TrendingUp },
-    { id: 'simulation', label: 'Sim Lab', icon: History }, // NEW
+    { id: 'simulation', label: 'Sim Lab', icon: History },
     { id: 'handbook', label: 'Manual', icon: BookOpen },
   ];
 
@@ -61,10 +78,6 @@ const Header = ({ activeTab, setActiveTab, mobileMenuOpen, setMobileMenuOpen }) 
     </header>
   );
 };
-
-// ... (Existing TVScript, DoomsdayClock, IntelCard, LeadCaptureModal components remain unchanged) ...
-// To save space, assume the code for TVScript, DoomsdayClock, IntelCard, and LeadCaptureModal 
-// is exactly as it was in previous versions. If you need them pasted again, let me know.
 
 const TVScript = ({ src, config, className = "h-96" }) => {
   const ref = useRef(null);
@@ -144,7 +157,6 @@ const IntelCard = ({ asset }) => {
     );
 };
 
-// ... (LeadCaptureModal remains unchanged) ...
 const LeadCaptureModal = ({ isOpen, onClose }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -156,7 +168,8 @@ const LeadCaptureModal = ({ isOpen, onClose }) => {
         e.preventDefault();
         setStatus('submitting');
         try {
-            const response = await fetch('https://economic-watchtower-test.onrender.com', {
+            // Using Dynamic URL
+            const response = await fetch(`${API_BASE_URL}/api/capture-lead`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email })
@@ -202,7 +215,6 @@ const LeadCaptureModal = ({ isOpen, onClose }) => {
     );
 };
 
-// --- NEW: Backtest View ---
 const BacktestView = () => {
     const [scenario, setScenario] = useState('2020_COVID');
     const [results, setResults] = useState(null);
@@ -214,8 +226,8 @@ const BacktestView = () => {
         setError(null);
         setResults(null);
         try {
-            // Replace with your Render URL
-            const response = await fetch('https://economic-watchtower-test.onrender.com/api/backtest', {
+            // Using Dynamic URL
+            const response = await fetch(`${API_BASE_URL}/api/backtest`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ scenario })
@@ -236,7 +248,6 @@ const BacktestView = () => {
     return (
         <div className="space-y-6 animate-fadeIn h-full">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Control Panel */}
                 <div className="col-span-1 bg-slate-900 border border-slate-800 rounded p-6 h-fit">
                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                         <History className="h-6 w-6 text-blue-500" /> Time Machine
@@ -294,7 +305,6 @@ const BacktestView = () => {
                     )}
                 </div>
 
-                {/* Results Visualizer */}
                 <div className="col-span-1 lg:col-span-3 bg-slate-900 border border-slate-800 rounded p-6 h-[600px] overflow-y-auto custom-scrollbar">
                     {!results ? (
                         <div className="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
@@ -310,7 +320,6 @@ const BacktestView = () => {
                             </div>
                             
                             {results.timeline.map((day, idx) => {
-                                // Determine color based on risk
                                 let barColor = "bg-emerald-500";
                                 if(day.defcon <= 3) barColor = "bg-yellow-500";
                                 if(day.defcon <= 2) barColor = "bg-orange-500";
@@ -320,8 +329,6 @@ const BacktestView = () => {
                                     <div key={idx} className="grid grid-cols-12 text-xs font-mono hover:bg-slate-800 p-2 rounded transition-colors items-center group">
                                         <div className="col-span-2 text-slate-400">{day.date}</div>
                                         <div className="col-span-2 text-right text-slate-300">${day.spx_price.toFixed(0)}</div>
-                                        
-                                        {/* Risk Bar Visualization */}
                                         <div className="col-span-8 pl-4 flex items-center gap-2">
                                             <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
                                                 <div 
@@ -344,14 +351,8 @@ const BacktestView = () => {
     );
 };
 
-// ... (Existing View Components: DashboardView, CryptoView, EconomyView, BondsView, HandbookView) ...
-// Assume previous views are here unchanged. 
-// Just ensure the imports and main App logic below are correct.
-
 const DashboardView = ({ systemData, riskMetrics, loading, error, fetchBackendData }) => {
   const criticalUpdates = systemData ? systemData.filter(i => i.signal === 'WARNING' || i.signal === 'CRITICAL') : [];
-  // (Paste full DashboardView code from previous response here if you replaced the whole file)
-  // ... Or keep your existing one ...
   return (
     <div className="space-y-8 animate-fadeIn text-slate-300">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -398,7 +399,6 @@ const DashboardView = ({ systemData, riskMetrics, loading, error, fetchBackendDa
             </div>
         </div>
       </div>
-      {/* Charts section remains same as previous */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-slate-900 border border-slate-800 rounded p-1 h-[400px]"><TVScript src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" className="h-full w-full" config={{ autosize: true, symbol: "SP:SPX", interval: "D", theme: "dark", style: "1", locale: "en", hide_top_toolbar: true, hide_legend: true }} /></div>
         <div className="bg-slate-900 border border-slate-800 rounded p-1 h-[400px]"><TVScript src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" className="h-full w-full" config={{ symbol: "HYG", width: "100%", height: "100%", locale: "en", dateRange: "12M", colorTheme: "dark", isTransparent: true, autosize: true }} /></div>
@@ -407,7 +407,6 @@ const DashboardView = ({ systemData, riskMetrics, loading, error, fetchBackendDa
   );
 };
 
-// ... CryptoView, EconomyView, BondsView, HandbookView are same as v10 ...
 const CryptoView = ({ systemData, loading }) => {
     const assets = systemData ? systemData.filter(item => ['BTC', 'ETH', 'SOL'].includes(item.asset)) : [];
     return (
@@ -504,8 +503,6 @@ const HandbookView = () => {
     );
 };
 
-// --- Main App Component ---
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -519,7 +516,8 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('https://economic-watchtower-test.onrender.com/api/status');
+      // Using Dynamic URL
+      const response = await fetch(`${API_BASE_URL}/api/status`);
       if (!response.ok) throw new Error('API Offline');
       const data = await response.json();
       setSystemData(data.data.assets); 
@@ -539,14 +537,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black text-slate-300 font-sans selection:bg-red-900/50">
-      <Header 
-        activeTab={activeTab} setActiveTab={setActiveTab}
-        mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
-      />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-80px)]">
-        {activeTab === 'dashboard' && (
-            <DashboardView systemData={systemData} riskMetrics={riskMetrics} loading={loading} error={error} fetchBackendData={fetchBackendData} />
-        )}
+        {activeTab === 'dashboard' && <DashboardView systemData={systemData} riskMetrics={riskMetrics} loading={loading} error={error} fetchBackendData={fetchBackendData} />}
         {activeTab === 'crypto' && <CryptoView systemData={systemData} loading={loading} />}
         {activeTab === 'economy' && <EconomyView systemData={systemData} loading={loading} />}
         {activeTab === 'bonds' && <BondsView systemData={systemData} loading={loading} />}
