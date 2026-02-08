@@ -8,8 +8,9 @@ import {
 } from 'lucide-react';
 
 /**
- * US Economic Watchtower v13 (Rolling 90D Sim Added)
- * - Added "Last 3 Months" option to Simulation Lab
+ * US Economic Watchtower v14 (Stability Fixes)
+ * - Added Crash Guards to BacktestView to prevent UI white-screen/dark-screen on empty data.
+ * - Safely handles null values for stock prices in simulation results.
  */
 
 // --- Configuration ---
@@ -237,11 +238,17 @@ const BacktestView = () => {
             if (json.status === 'error') throw new Error(json.message);
             setResults(json.data);
         } catch (err) {
+            // @ts-ignore
             setError(err.message);
         } finally {
             setLoading(false);
         }
     };
+
+    // calculate max risk safely (avoiding -Infinity on empty arrays)
+    const maxRisk = results?.timeline?.length 
+        ? Math.max(...results.timeline.map((d: any) => d.risk_score)) 
+        : 0;
 
     return (
         <div className="space-y-6 animate-fadeIn h-full">
@@ -251,7 +258,7 @@ const BacktestView = () => {
                         <History className="h-6 w-6 text-blue-500" /> Time Machine
                     </h2>
                     <p className="text-sm text-slate-400 mb-6">
-                        Test the "Doomsday Algorithm" against historical crashes or recent trends.
+                        Test the "Doomsday Algorithm" against historical crashes to validate performance.
                     </p>
                     
                     <div className="space-y-4">
@@ -290,7 +297,7 @@ const BacktestView = () => {
                                 <div className="flex justify-between">
                                     <span className="text-slate-500">Peak Risk:</span>
                                     <span className="text-red-500 font-bold">
-                                        {Math.max(...results.timeline.map(d => d.risk_score))}%
+                                        {maxRisk}%
                                     </span>
                                 </div>
                             </div>
@@ -318,7 +325,7 @@ const BacktestView = () => {
                                 <div className="col-span-8 pl-4">RISK SCORE (DEFCON)</div>
                             </div>
                             
-                            {results.timeline.map((day, idx) => {
+                            {(results.timeline || []).map((day: any, idx: number) => {
                                 let barColor = "bg-emerald-500";
                                 if(day.defcon <= 3) barColor = "bg-yellow-500";
                                 if(day.defcon <= 2) barColor = "bg-orange-500";
@@ -327,7 +334,9 @@ const BacktestView = () => {
                                 return (
                                     <div key={idx} className="grid grid-cols-12 text-xs font-mono hover:bg-slate-800 p-2 rounded transition-colors items-center group">
                                         <div className="col-span-2 text-slate-400">{day.date}</div>
-                                        <div className="col-span-2 text-right text-slate-300">${day.spx_price.toFixed(0)}</div>
+                                        <div className="col-span-2 text-right text-slate-300">
+                                            {day.spx_price ? `$${day.spx_price.toFixed(0)}` : 'N/A'}
+                                        </div>
                                         <div className="col-span-8 pl-4 flex items-center gap-2">
                                             <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
                                                 <div 
