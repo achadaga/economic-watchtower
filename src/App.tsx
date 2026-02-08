@@ -156,7 +156,7 @@ const LeadCaptureModal = ({ isOpen, onClose }) => {
         e.preventDefault();
         setStatus('submitting');
         try {
-            const response = await fetch('https://economic-watchtower.onrender.com/api/capture-lead', {
+            const response = await fetch('https://economic-watchtower-test.onrender.com', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email })
