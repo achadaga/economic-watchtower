@@ -8,9 +8,9 @@ import {
 } from 'lucide-react';
 
 /**
- * US Economic Watchtower v14 (Stability Fixes)
- * - Added Crash Guards to BacktestView to prevent UI white-screen/dark-screen on empty data.
- * - Safely handles null values for stock prices in simulation results.
+ * US Economic Watchtower v15 (180D Sim Added)
+ * - Added "Last 6 Months" to Simulation Lab
+ * - Maintained Crash Guards and Dynamic Config
  */
 
 // --- Configuration ---
@@ -269,7 +269,8 @@ const BacktestView = () => {
                                 onChange={(e) => setScenario(e.target.value)}
                                 className="w-full bg-black border border-slate-700 rounded p-3 text-white font-mono focus:border-blue-500 outline-none"
                             >
-                                <option value="ROLLING_90D">Last 3 Months (Trend Analysis)</option>
+                                <option value="ROLLING_90D">Last 3 Months (Tactical)</option>
+                                <option value="ROLLING_180D">Last 6 Months (Strategic)</option>
                                 <option value="2020_COVID">2020: The Covid Crash</option>
                                 <option value="2008_GFC">2008: Great Financial Crisis</option>
                                 <option value="2022_INFLATION">2022: Inflation Bear Market</option>
