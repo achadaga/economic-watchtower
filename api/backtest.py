@@ -20,7 +20,6 @@ class BacktestEngine:
         print(f"[*] Downloading historical data ({start_date} to {end_date})...")
         
         # Calculate buffer based on start date to ensure we have enough data for 200 SMA
-        # 300 days buffer is safer than 250 for 200-day MA calculation + weekends
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         buffer_start = (start_dt - pd.Timedelta(days=365)).strftime("%Y-%m-%d")
 
@@ -31,7 +30,7 @@ class BacktestEngine:
                 
                 if df.empty: continue
 
-                # Clean up MultiIndex columns if present (yfinance update quirk)
+                # Clean up MultiIndex columns if present
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
 
@@ -48,9 +47,6 @@ class BacktestEngine:
                 print(f"[!] Error processing {name}: {e}")
 
     def calculate_daily_risk(self, date_idx):
-        """
-        Replicates the exact logic from logic.py, but applied to a specific historical date.
-        """
         daily_score = 0
         active_assets = 0
         
@@ -61,7 +57,6 @@ class BacktestEngine:
             active_assets += 1
             row = df.loc[date_idx]
             
-            # Extract scalar values safely
             try:
                 price = float(row['Close'])
                 sma_50 = float(row['SMA_50']) if not pd.isna(row['SMA_50']) else 0
@@ -70,44 +65,36 @@ class BacktestEngine:
             except:
                 continue
 
-            # Skip if not enough history for 200 SMA yet
             if sma_200 == 0: continue
 
-            # --- CORE LOGIC (Same as logic.py) ---
+            # --- CORE LOGIC ---
             asset_risk = 0
             is_critical = False
             is_warning = False
 
-            # Trend
             if price < sma_200:
                 asset_risk += 10
                 is_warning = True
             
-            # Crash Mode
             if price < sma_50 and price < sma_200:
                 asset_risk += 20
                 is_critical = True
                 
-            # Momentum
             if rsi > 70: asset_risk += 1
             if rsi < 30: asset_risk -= 1
 
-            # Multipliers
             if name == "JUNK":
                 if is_warning or is_critical:
                     asset_risk *= 2.0
-            
             elif name == "10Y":
-                asset_risk = 0 # Reset trend risk, look at absolute yield
+                asset_risk = 0 
                 if price > 4.5: asset_risk += 25
                 elif price > 4.0: asset_risk += 10
-            
             elif name == "BANKS":
                 if is_critical: asset_risk += 30
 
             daily_score += asset_risk
 
-        # Normalize Score
         divisor = 1.5 if "BTC" in self.data and not self.data["BTC"].empty else 1.2
         final_score = min((daily_score / divisor), 100)
         
@@ -120,26 +107,22 @@ class BacktestEngine:
             start_dt = end_dt - pd.Timedelta(days=90)
             end = end_dt.strftime("%Y-%m-%d")
             start = start_dt.strftime("%Y-%m-%d")
-        
         elif scenario_key == "ROLLING_180D":
             end_dt = datetime.now()
             start_dt = end_dt - pd.Timedelta(days=180)
             end = end_dt.strftime("%Y-%m-%d")
             start = start_dt.strftime("%Y-%m-%d")
-
         else:
             scenarios = {
                 "2020_COVID": ("2019-12-01", "2020-06-01"),
                 "2008_GFC": ("2007-06-01", "2009-01-01"),
                 "2022_INFLATION": ("2021-11-01", "2022-12-31")
             }
-            
             if scenario_key not in scenarios:
-                return {"error": "Invalid Scenario. Options: ROLLING_90D, ROLLING_180D, 2020_COVID, 2008_GFC, 2022_INFLATION"}
-
+                return {"error": "Invalid Scenario"}
             start, end = scenarios[scenario_key]
         
-        # 2. Clear previous data & Load New
+        # 2. Load Data
         self.data = {}
         self.get_history(start, end)
         
@@ -161,11 +144,26 @@ class BacktestEngine:
             elif risk_score > 40: defcon = 3
             elif risk_score > 20: defcon = 4
             
+            # Safe getters for prices
+            spx = float(self.data["SPX"].loc[date]['Close'])
+            
+            # Handle BTC (Might be missing on weekends or in 2008)
+            btc = None
+            if "BTC" in self.data and date in self.data["BTC"].index:
+                btc = float(self.data["BTC"].loc[date]['Close'])
+                
+            # Handle 10Y
+            yield10 = None
+            if "10Y" in self.data and date in self.data["10Y"].index:
+                yield10 = float(self.data["10Y"].loc[date]['Close'])
+
             results.append({
                 "date": date.strftime("%Y-%m-%d"),
                 "risk_score": risk_score,
                 "defcon": defcon,
-                "spx_price": float(self.data["SPX"].loc[date]['Close'])
+                "spx_price": spx,
+                "btc_price": btc,
+                "yield_10y": yield10
             })
             
         return {
@@ -175,16 +173,9 @@ class BacktestEngine:
         }
 
 if __name__ == "__main__":
-    # Local Test
     engine = BacktestEngine()
-    report = engine.run("ROLLING_180D")
-    
+    report = engine.run("ROLLING_90D")
     if "error" in report:
         print(report["error"])
     else:
-        # Find peak risk
-        peak = max(report["timeline"], key=lambda x: x['risk_score'])
-        print(f"\n--- REPORT: {report['scenario']} ---")
-        print(f"Period: {report['period']}")
-        print(f"Peak Risk: {peak['risk_score']}% (DEFCON {peak['defcon']})")
-        print(f"Date of Peak: {peak['date']}")
+        print("Success")
