@@ -215,7 +215,7 @@ const BacktestView = () => {
         setResults(null);
         try {
             // Replace with your Render URL
-            const response = await fetch('https://economic-watchtower.onrender.com/api/backtest', {
+            const response = await fetch('https://economic-watchtower-test.onrender.com/api/backtest', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ scenario })
@@ -519,7 +519,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('https://economic-watchtower.onrender.com/api/status');
+      const response = await fetch('https://economic-watchtower-test.onrender.com/api/status');
       if (!response.ok) throw new Error('API Offline');
       const data = await response.json();
       setSystemData(data.data.assets); 
