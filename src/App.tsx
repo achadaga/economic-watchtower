@@ -8,9 +8,8 @@ import {
 } from 'lucide-react';
 
 /**
- * US Economic Watchtower v15 (180D Sim Added)
- * - Added "Last 6 Months" to Simulation Lab
- * - Maintained Crash Guards and Dynamic Config
+ * US Economic Watchtower v16 (Multi-Asset Simulation)
+ * - Added BTC and 10Y Yields to Simulation Results table
  */
 
 // --- Configuration ---
@@ -320,10 +319,13 @@ const BacktestView = () => {
                         </div>
                     ) : (
                         <div className="space-y-1">
-                            <div className="grid grid-cols-12 text-xs font-mono text-slate-500 mb-2 px-2">
+                            {/* Updated Header Row */}
+                            <div className="grid grid-cols-12 text-xs font-mono text-slate-500 mb-2 px-2 border-b border-slate-800 pb-2">
                                 <div className="col-span-2">DATE</div>
-                                <div className="col-span-2 text-right">SPX PRICE</div>
-                                <div className="col-span-8 pl-4">RISK SCORE (DEFCON)</div>
+                                <div className="col-span-2 text-right text-blue-400">SPX</div>
+                                <div className="col-span-2 text-right text-yellow-400">BTC</div>
+                                <div className="col-span-2 text-right text-orange-400">10Y</div>
+                                <div className="col-span-4 pl-4">RISK (DEFCON)</div>
                             </div>
                             
                             {(results.timeline || []).map((day: any, idx: number) => {
@@ -335,10 +337,24 @@ const BacktestView = () => {
                                 return (
                                     <div key={idx} className="grid grid-cols-12 text-xs font-mono hover:bg-slate-800 p-2 rounded transition-colors items-center group">
                                         <div className="col-span-2 text-slate-400">{day.date}</div>
-                                        <div className="col-span-2 text-right text-slate-300">
-                                            {day.spx_price ? `$${day.spx_price.toFixed(0)}` : 'N/A'}
+                                        
+                                        {/* SPX Price */}
+                                        <div className="col-span-2 text-right text-blue-300">
+                                            {day.spx_price ? `$${day.spx_price.toFixed(0)}` : '-'}
                                         </div>
-                                        <div className="col-span-8 pl-4 flex items-center gap-2">
+
+                                        {/* BTC Price */}
+                                        <div className="col-span-2 text-right text-yellow-300">
+                                            {day.btc_price ? `$${day.btc_price.toFixed(0)}` : '-'}
+                                        </div>
+
+                                        {/* 10Y Yield */}
+                                        <div className="col-span-2 text-right text-orange-300">
+                                            {day.yield_10y ? `${day.yield_10y.toFixed(2)}%` : '-'}
+                                        </div>
+
+                                        {/* Risk Bar */}
+                                        <div className="col-span-4 pl-4 flex items-center gap-2">
                                             <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
                                                 <div 
                                                     className={`h-full ${barColor}`} 
