@@ -2,12 +2,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from .logic import TradingAgent
+from .backtest import BacktestEngine  # Import the new engine
 import traceback
 import datetime
 
 app = FastAPI()
 
-# Allow React app to talk to Python API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -20,6 +20,9 @@ app.add_middleware(
 class Lead(BaseModel):
     name: str
     email: str
+
+class BacktestRequest(BaseModel):
+    scenario: str # "2020_COVID", "2008_GFC", etc.
 
 # --- Routes ---
 
@@ -42,17 +45,21 @@ def get_market_status():
 
 @app.post("/api/capture-lead")
 def capture_lead(lead: Lead):
-    """
-    Receives user data before allowing download.
-    In a real app, save this to a database (Postgres/Firebase).
-    For now, we log it to the system console for retrieval.
-    """
     timestamp = datetime.datetime.now().isoformat()
-    
-    # LOGGING THE LEAD (Check Render Dashboard > Logs to see these)
     print(f"[{timestamp}] NEW LEAD CAPTURED: {lead.name} | {lead.email}")
-    
     return {"status": "success", "message": "Lead captured"}
+
+@app.post("/api/backtest")
+def run_backtest(req: BacktestRequest):
+    """
+    Runs the logic engine against historical data.
+    """
+    try:
+        engine = BacktestEngine()
+        results = engine.run(req.scenario)
+        return {"status": "success", "data": results}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @app.get("/")
 def home():
