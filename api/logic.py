@@ -22,7 +22,7 @@ class TradingAgent:
     def get_scalar(self, series):
         """
         Safely extracts a single float from a Pandas Series or Scalar.
-        Fixes 'Truth value of a Series is ambiguous' error.
+        Fixes 'Truth value of a Series is ambiguous' and 'NoneType' errors.
         """
         if series is None or len(series) == 0:
             return 0.0
@@ -33,6 +33,10 @@ class TradingAgent:
         # If it's still a Series (yfinance quirk), grab the first item
         if isinstance(val, pd.Series):
             val = val.iloc[0]
+            
+        # CRITICAL FIX: Check for None or NaN before converting
+        if val is None or pd.isna(val):
+            return 0.0
             
         return float(val)
 
@@ -55,6 +59,10 @@ class TradingAgent:
             rsi = self.get_scalar(df['RSI'])
             sma_50 = self.get_scalar(df['SMA_50'])
             sma_200 = self.get_scalar(df['SMA_200'])
+            
+            # If critical data is missing (0.0), skip this asset to prevent bad math
+            if current_price == 0.0 or sma_200 == 0.0:
+                return None
             
         except Exception as e:
             print(f"Calculation Error for {name}: {e}")
