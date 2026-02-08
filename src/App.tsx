@@ -4,12 +4,14 @@ import {
   LineChart, Activity, Globe, DollarSign, Briefcase, FileText, 
   TrendingUp, AlertTriangle, Menu, X, Zap, Cpu, Wifi, Terminal, 
   RefreshCw, ShieldAlert, Skull, ArrowUpRight, ArrowDownRight, Minus,
-  BookOpen, Bookmark, Lock, Download, CheckCircle, Play, History
+  BookOpen, Bookmark, Lock, Download, CheckCircle, Play, History,
+  ChevronDown, ChevronRight, AlertCircle
 } from 'lucide-react';
 
 /**
- * US Economic Watchtower v16 (Multi-Asset Simulation)
- * - Added BTC and 10Y Yields to Simulation Results table
+ * US Economic Watchtower v17 (Simulation Intel Brief)
+ * - Added "Daily Intel Brief" (Expandable Rows) to Simulation
+ * - Shows exactly WHY the risk score changed for each day
  */
 
 // --- Configuration ---
@@ -20,16 +22,14 @@ const getApiUrl = () => {
       // @ts-ignore
       return import.meta.env.VITE_API_URL;
     }
-  } catch (e) {
-    // Ignore errors if import.meta is not available
-  }
+  } catch (e) {}
   return 'https://doomsday-test-backend.onrender.com';
 };
 
 const API_BASE_URL = getApiUrl();
 
-// --- Shared Components ---
-
+// --- Shared Components (Header, TVScript, DoomsdayClock, IntelCard, LeadCaptureModal remain same) ---
+// (Re-declaring Header here to ensure context is maintained)
 const Header = ({ activeTab, setActiveTab, mobileMenuOpen, setMobileMenuOpen }) => {
   const navItems = [
     { id: 'dashboard', label: 'Watchtower', icon: ShieldAlert },
@@ -218,6 +218,7 @@ const BacktestView = () => {
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [expandedRow, setExpandedRow] = useState(null);
 
     const runSimulation = async () => {
         setLoading(true);
@@ -249,9 +250,15 @@ const BacktestView = () => {
         ? Math.max(...results.timeline.map((d: any) => d.risk_score)) 
         : 0;
 
+    const toggleRow = (idx) => {
+        if (expandedRow === idx) setExpandedRow(null);
+        else setExpandedRow(idx);
+    };
+
     return (
         <div className="space-y-6 animate-fadeIn h-full">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Control Panel */}
                 <div className="col-span-1 bg-slate-900 border border-slate-800 rounded p-6 h-fit">
                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                         <History className="h-6 w-6 text-blue-500" /> Time Machine
@@ -311,6 +318,7 @@ const BacktestView = () => {
                     )}
                 </div>
 
+                {/* Results Visualizer */}
                 <div className="col-span-1 lg:col-span-3 bg-slate-900 border border-slate-800 rounded p-6 h-[600px] overflow-y-auto custom-scrollbar">
                     {!results ? (
                         <div className="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
@@ -319,7 +327,7 @@ const BacktestView = () => {
                         </div>
                     ) : (
                         <div className="space-y-1">
-                            {/* Updated Header Row */}
+                            {/* Header */}
                             <div className="grid grid-cols-12 text-xs font-mono text-slate-500 mb-2 px-2 border-b border-slate-800 pb-2">
                                 <div className="col-span-2">DATE</div>
                                 <div className="col-span-2 text-right text-blue-400">SPX</div>
@@ -333,38 +341,58 @@ const BacktestView = () => {
                                 if(day.defcon <= 3) barColor = "bg-yellow-500";
                                 if(day.defcon <= 2) barColor = "bg-orange-500";
                                 if(day.defcon === 1) barColor = "bg-red-600";
+                                
+                                const isExpanded = expandedRow === idx;
 
                                 return (
-                                    <div key={idx} className="grid grid-cols-12 text-xs font-mono hover:bg-slate-800 p-2 rounded transition-colors items-center group">
-                                        <div className="col-span-2 text-slate-400">{day.date}</div>
-                                        
-                                        {/* SPX Price */}
-                                        <div className="col-span-2 text-right text-blue-300">
-                                            {day.spx_price ? `$${day.spx_price.toFixed(0)}` : '-'}
-                                        </div>
-
-                                        {/* BTC Price */}
-                                        <div className="col-span-2 text-right text-yellow-300">
-                                            {day.btc_price ? `$${day.btc_price.toFixed(0)}` : '-'}
-                                        </div>
-
-                                        {/* 10Y Yield */}
-                                        <div className="col-span-2 text-right text-orange-300">
-                                            {day.yield_10y ? `${day.yield_10y.toFixed(2)}%` : '-'}
-                                        </div>
-
-                                        {/* Risk Bar */}
-                                        <div className="col-span-4 pl-4 flex items-center gap-2">
-                                            <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
-                                                <div 
-                                                    className={`h-full ${barColor}`} 
-                                                    style={{ width: `${day.risk_score}%` }}
-                                                />
+                                    <div key={idx} className="group">
+                                        {/* Main Row */}
+                                        <div 
+                                            onClick={() => toggleRow(idx)}
+                                            className={`grid grid-cols-12 text-xs font-mono p-2 rounded transition-colors items-center cursor-pointer ${isExpanded ? 'bg-slate-800' : 'hover:bg-slate-800/50'}`}
+                                        >
+                                            <div className="col-span-2 text-slate-400 flex items-center gap-1">
+                                                {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3 opacity-50" />}
+                                                {day.date}
                                             </div>
-                                            <span className={`w-8 text-right font-bold ${day.defcon === 1 ? 'text-red-500' : 'text-slate-500'}`}>
-                                                {day.risk_score}
-                                            </span>
+                                            <div className="col-span-2 text-right text-blue-300">
+                                                {day.spx_price ? `$${day.spx_price.toFixed(0)}` : '-'}
+                                            </div>
+                                            <div className="col-span-2 text-right text-yellow-300">
+                                                {day.btc_price ? `$${day.btc_price.toFixed(0)}` : '-'}
+                                            </div>
+                                            <div className="col-span-2 text-right text-orange-300">
+                                                {day.yield_10y ? `${day.yield_10y.toFixed(2)}%` : '-'}
+                                            </div>
+                                            <div className="col-span-4 pl-4 flex items-center gap-2">
+                                                <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
+                                                    <div className={`h-full ${barColor}`} style={{ width: `${day.risk_score}%` }} />
+                                                </div>
+                                                <span className={`w-8 text-right font-bold ${day.defcon === 1 ? 'text-red-500' : 'text-slate-500'}`}>
+                                                    {day.risk_score}
+                                                </span>
+                                            </div>
                                         </div>
+
+                                        {/* Expanded Intel Brief */}
+                                        {isExpanded && (
+                                            <div className="bg-slate-950/50 border-l-2 border-slate-700 ml-4 my-1 p-3 rounded-r text-xs font-mono">
+                                                <h4 className="text-slate-400 mb-2 flex items-center gap-2">
+                                                    <AlertCircle className="h-3 w-3" /> INTELLIGENCE BRIEFING
+                                                </h4>
+                                                {day.reasons && day.reasons.length > 0 ? (
+                                                    <ul className="space-y-1">
+                                                        {day.reasons.map((reason: string, rIdx: number) => (
+                                                            <li key={rIdx} className="text-slate-300 pl-4 border-l border-slate-800">
+                                                                {reason}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                ) : (
+                                                    <span className="text-emerald-500/70 italic">{'>'} No risk factors detected. System Nominal.</span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
