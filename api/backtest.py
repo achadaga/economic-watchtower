@@ -9,7 +9,7 @@ ASSETS = {
     "10Y": "^TNX",      # Yields
     "JUNK": "HYG",      # Credit
     "BANKS": "KBE",     # Systemic Health
-    "BTC": "BTC-USD"    # Liquidity (Won't have data for 2008, handled gracefully)
+    "BTC": "BTC-USD"    # Liquidity
 }
 
 class BacktestEngine:
@@ -17,32 +17,29 @@ class BacktestEngine:
         self.data = {}
 
     def get_history(self, start_date, end_date):
-        """Fetches historical data with a buffer for moving averages"""
         print(f"[*] Downloading historical data ({start_date} to {end_date})...")
         
-        # We need data from BEFORE the start date to calculate the 200-day SMA correctly
-        # otherwise the first 200 days of the simulation would be blank.
+        # Reduced buffer to 250 days to save RAM/Time on free tier
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        buffer_start = (start_dt - pd.Timedelta(days=365)).strftime("%Y-%m-%d")
+        buffer_start = (start_dt - pd.Timedelta(days=250)).strftime("%Y-%m-%d")
 
         for name, ticker in ASSETS.items():
             try:
+                # Optimized download
                 df = yf.download(ticker, start=buffer_start, end=end_date, progress=False, auto_adjust=True)
                 
-                if df.empty:
-                    print(f"[!] Warning: No data for {name} (might not have existed then)")
-                    continue
+                if df.empty: continue
 
                 # Clean up MultiIndex columns if present (yfinance update quirk)
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
 
-                # Calculate Indicators
+                # Calculate indicators efficiently
                 df['SMA_50'] = ta.sma(df['Close'], length=50)
                 df['SMA_200'] = ta.sma(df['Close'], length=200)
                 df['RSI'] = ta.rsi(df['Close'], length=14)
                 
-                # Trim data to the actual requested period
+                # Filter strictly to requested range
                 mask = (df.index >= start_date) & (df.index <= end_date)
                 self.data[name] = df.loc[mask]
                 
@@ -64,10 +61,13 @@ class BacktestEngine:
             row = df.loc[date_idx]
             
             # Extract scalar values safely
-            price = float(row['Close'])
-            sma_50 = float(row['SMA_50']) if not pd.isna(row['SMA_50']) else 0
-            sma_200 = float(row['SMA_200']) if not pd.isna(row['SMA_200']) else 0
-            rsi = float(row['RSI']) if not pd.isna(row['RSI']) else 50
+            try:
+                price = float(row['Close'])
+                sma_50 = float(row['SMA_50']) if not pd.isna(row['SMA_50']) else 0
+                sma_200 = float(row['SMA_200']) if not pd.isna(row['SMA_200']) else 0
+                rsi = float(row['RSI']) if not pd.isna(row['RSI']) else 50
+            except:
+                continue
 
             # Skip if not enough history for 200 SMA yet
             if sma_200 == 0: continue
@@ -107,31 +107,38 @@ class BacktestEngine:
             daily_score += asset_risk
 
         # Normalize Score
-        # We adjust divisor based on active assets to handle 2008 (when BTC didn't exist)
         divisor = 1.5 if "BTC" in self.data and not self.data["BTC"].empty else 1.2
         final_score = min((daily_score / divisor), 100)
         
         return int(final_score)
 
     def run(self, scenario_key):
-        scenarios = {
-            "2020_COVID": ("2019-12-01", "2020-06-01"),
-            "2008_GFC": ("2007-06-01", "2009-01-01"),
-            "2022_INFLATION": ("2021-11-01", "2022-12-31")
-        }
-        
-        if scenario_key not in scenarios:
-            return {"error": "Invalid Scenario. Options: 2020_COVID, 2008_GFC, 2022_INFLATION"}
+        # 1. Determine Dates
+        if scenario_key == "ROLLING_90D":
+            end_dt = datetime.now()
+            start_dt = end_dt - pd.Timedelta(days=90)
+            end = end_dt.strftime("%Y-%m-%d")
+            start = start_dt.strftime("%Y-%m-%d")
+        else:
+            scenarios = {
+                "2020_COVID": ("2019-12-01", "2020-06-01"),
+                "2008_GFC": ("2007-06-01", "2009-01-01"),
+                "2022_INFLATION": ("2021-11-01", "2022-12-31")
+            }
+            
+            if scenario_key not in scenarios:
+                return {"error": "Invalid Scenario. Options: ROLLING_90D, 2020_COVID, 2008_GFC, 2022_INFLATION"}
 
-        start, end = scenarios[scenario_key]
+            start, end = scenarios[scenario_key]
         
-        # Clear previous data
+        # 2. Clear previous data & Load New
         self.data = {}
         self.get_history(start, end)
         
         if "SPX" not in self.data:
             return {"error": "Failed to load SPX baseline data"}
 
+        # 3. Simulate
         results = []
         timeline = self.data["SPX"].index
         
@@ -162,7 +169,7 @@ class BacktestEngine:
 if __name__ == "__main__":
     # Local Test
     engine = BacktestEngine()
-    report = engine.run("2020_COVID")
+    report = engine.run("ROLLING_90D")
     
     if "error" in report:
         print(report["error"])
@@ -170,6 +177,6 @@ if __name__ == "__main__":
         # Find peak risk
         peak = max(report["timeline"], key=lambda x: x['risk_score'])
         print(f"\n--- REPORT: {report['scenario']} ---")
+        print(f"Period: {report['period']}")
         print(f"Peak Risk: {peak['risk_score']}% (DEFCON {peak['defcon']})")
         print(f"Date of Peak: {peak['date']}")
-        print(f"S&P 500 at Peak Risk: ${peak['spx_price']}")
