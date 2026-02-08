@@ -19,9 +19,10 @@ class BacktestEngine:
     def get_history(self, start_date, end_date):
         print(f"[*] Downloading historical data ({start_date} to {end_date})...")
         
-        # Reduced buffer to 250 days to save RAM/Time on free tier
+        # Calculate buffer based on start date to ensure we have enough data for 200 SMA
+        # 300 days buffer is safer than 250 for 200-day MA calculation + weekends
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        buffer_start = (start_dt - pd.Timedelta(days=250)).strftime("%Y-%m-%d")
+        buffer_start = (start_dt - pd.Timedelta(days=365)).strftime("%Y-%m-%d")
 
         for name, ticker in ASSETS.items():
             try:
@@ -119,6 +120,13 @@ class BacktestEngine:
             start_dt = end_dt - pd.Timedelta(days=90)
             end = end_dt.strftime("%Y-%m-%d")
             start = start_dt.strftime("%Y-%m-%d")
+        
+        elif scenario_key == "ROLLING_180D":
+            end_dt = datetime.now()
+            start_dt = end_dt - pd.Timedelta(days=180)
+            end = end_dt.strftime("%Y-%m-%d")
+            start = start_dt.strftime("%Y-%m-%d")
+
         else:
             scenarios = {
                 "2020_COVID": ("2019-12-01", "2020-06-01"),
@@ -127,7 +135,7 @@ class BacktestEngine:
             }
             
             if scenario_key not in scenarios:
-                return {"error": "Invalid Scenario. Options: ROLLING_90D, 2020_COVID, 2008_GFC, 2022_INFLATION"}
+                return {"error": "Invalid Scenario. Options: ROLLING_90D, ROLLING_180D, 2020_COVID, 2008_GFC, 2022_INFLATION"}
 
             start, end = scenarios[scenario_key]
         
@@ -169,7 +177,7 @@ class BacktestEngine:
 if __name__ == "__main__":
     # Local Test
     engine = BacktestEngine()
-    report = engine.run("ROLLING_90D")
+    report = engine.run("ROLLING_180D")
     
     if "error" in report:
         print(report["error"])
