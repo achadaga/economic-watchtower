@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from .logic import TradingAgent
-from .backtest import BacktestEngine  # Import the new engine
+from .backtest import BacktestEngine
+from .alerts import send_discord_alert # Import the new module
 import traceback
 import datetime
 
@@ -16,17 +17,13 @@ app.add_middleware(
     allow_headers=["*"], 
 )
 
-# --- Data Models ---
 class Lead(BaseModel):
     name: str
     email: str
 
 class BacktestRequest(BaseModel):
-    scenario: str # "2020_COVID", "2008_GFC", etc.
+    scenario: str 
 
-# --- Routes ---
-
-# Initialize agent
 try:
     agent = TradingAgent()
 except Exception as e:
@@ -43,6 +40,31 @@ def get_market_status():
     except Exception as e:
         return {"status": "critical_error", "message": str(e), "traceback": traceback.format_exc()}
 
+# --- NEW: CRON TRIGGER ---
+@app.get("/api/cron/scan")
+def trigger_manual_scan():
+    """
+    Hit this URL to force a scan and send a Discord Alert.
+    Used by external schedulers (cron-job.org).
+    """
+    if not agent:
+        return {"status": "error", "message": "Agent offline"}
+    
+    try:
+        # 1. Run the Logic
+        data = agent.run_scan()
+        
+        # 2. Send the Alert
+        alert_status = send_discord_alert(data)
+        
+        return {
+            "status": "success", 
+            "market_defcon": data['defcon'],
+            "alert_status": alert_status
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.post("/api/capture-lead")
 def capture_lead(lead: Lead):
     timestamp = datetime.datetime.now().isoformat()
@@ -51,9 +73,6 @@ def capture_lead(lead: Lead):
 
 @app.post("/api/backtest")
 def run_backtest(req: BacktestRequest):
-    """
-    Runs the logic engine against historical data.
-    """
     try:
         engine = BacktestEngine()
         results = engine.run(req.scenario)
